@@ -40,7 +40,7 @@ Add your Google Drive/Kaggle dataset link here.
 
 ---
 
-#Project Workflow
+# Project Workflow
 
 ## 1. SIFT Feature Extraction
 Scale-Invariant Feature Transform (SIFT) is used to extract local image descriptors from images.
