@@ -1692,6 +1692,277 @@ if __name__ == "__main__":
         "MICC_Normalized.csv",
         "MICC"
     )
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import joblib
+
+from sklearn.decomposition import PCA
+
+
+# =========================================================
+# MAIN FUNCTION
+# =========================================================
+
+def apply_pca_and_save(csv_path, dataset_name):
+
+    print("\n")
+    print(f"PCA PROCESSING : {dataset_name}")
+    print("\n")
+
+    # =====================================================
+    # STEP 1 : LOAD NORMALIZED CSV
+    # =====================================================
+
+    df = pd.read_csv(csv_path)
+
+    X = df.drop(
+        columns=["label", "filename"],
+        errors="ignore"
+    )
+
+    y = df["label"]
+    filenames = df["filename"]
+
+    print("Normalized Feature Shape :", X.shape)
+
+    # =====================================================
+    # STEP 2 : APPLY PCA (With Scaling Improvement)
+    # =====================================================
+    from sklearn.preprocessing import StandardScaler
+    
+    print("\nApplying Standard Scaling and PCA...\n")
+    
+    # 1. Scale the data first (Crucial for PCA accuracy)
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    # 2. Apply PCA to the scaled data
+    pca = PCA(n_components=0.95, random_state=42)
+    X_pca = pca.fit_transform(X_scaled)
+    
+    pca_name = f"{dataset_name}_pca_model.pkl"
+    joblib.dump(pca, pca_name)
+    
+    print(f"PCA Model Saved : {pca_name}")
+    print("Reduced Feature Shape :", X_pca.shape)
+    
+    reduction_percent = ((1 - (X_pca.shape[1] / X.shape[1])) * 100)
+    print(f"Feature Reduction : {reduction_percent:.2f}%")
+    
+    # =====================================================
+    # STEP 3 : SAVE PCA CSV
+    # =====================================================
+
+    pca_df = pd.DataFrame(X_pca)
+
+    pca_df["label"] = y
+    pca_df["filename"] = filenames
+
+    csv_name = f"{dataset_name}_PCA.csv"
+
+    pca_df.to_csv(
+        csv_name,
+        index=False
+    )
+
+    print(
+        f"\nPCA CSV Saved Successfully : {csv_name}"
+    )
+
+    # =====================================================
+    # VISUALIZATIONS
+    # =====================================================
+
+    # 1. Explained Variance Curve
+
+    plt.figure(figsize=(10, 6))
+
+    cumulative_variance = np.cumsum(
+        pca.explained_variance_ratio_
+    )
+
+    plt.plot(
+        range(1, len(cumulative_variance) + 1),
+        cumulative_variance,
+        marker="o"
+    )
+
+    plt.axhline(
+        y=0.97,
+        linestyle="--",
+        linewidth=2
+    )
+
+    plt.title(
+        f"{dataset_name} - PCA Explained Variance"
+    )
+
+    plt.xlabel(
+        "Number of Principal Components"
+    )
+
+    plt.ylabel(
+        "Cumulative Explained Variance"
+    )
+
+    plt.grid(True)
+    plt.show()
+
+    # 2. Before vs After PCA Comparison
+
+    plt.figure(figsize=(8, 5))
+
+    plt.bar(
+        ["Before PCA", "After PCA"],
+        [X.shape[1], X_pca.shape[1]]
+    )
+
+    plt.title(
+        f"{dataset_name} - Feature Reduction Comparison"
+    )
+
+    plt.ylabel(
+        "Number of Features"
+    )
+
+    plt.grid(True)
+    plt.show()
+
+    # 3. PCA Scatter Plot (PC1 vs PC2)
+
+    if X_pca.shape[1] >= 2:
+
+        plt.figure(figsize=(10, 7))
+
+        sns.scatterplot(
+            x=X_pca[:, 0],
+            y=X_pca[:, 1],
+            hue=y,
+            palette="deep"
+        )
+
+        plt.title(
+            f"{dataset_name} - PCA Scatter Plot"
+        )
+
+        plt.xlabel(
+            "Principal Component 1"
+        )
+
+        plt.ylabel(
+            "Principal Component 2"
+        )
+
+        plt.grid(True)
+        plt.show()
+
+    # 4. PCA Density Distribution
+
+    if X_pca.shape[1] >= 2:
+
+        temp_df = pd.DataFrame({
+            "PC1": X_pca[:, 0],
+            "PC2": X_pca[:, 1],
+            "Class": y
+        })
+
+        plt.figure(figsize=(10, 7))
+
+        sns.kdeplot(
+            data=temp_df,
+            x="PC1",
+            y="PC2",
+            hue="Class",
+            fill=True
+        )
+
+        plt.title(
+            f"{dataset_name} - PCA Density Distribution"
+        )
+
+        plt.grid(True)
+        plt.show()
+
+    # 5. Original vs PCA Feature Signature
+
+    sample_index = np.random.randint(
+        0,
+        len(X)
+    )
+
+    fig, axes = plt.subplots(
+        2,
+        1,
+        figsize=(14, 8)
+    )
+
+    axes[0].plot(
+        X.iloc[sample_index]
+    )
+
+    axes[0].set_title(
+        f"{dataset_name} - Normalized Feature Signature"
+    )
+
+    axes[0].grid(True)
+
+    axes[1].plot(
+        X_pca[sample_index]
+    )
+
+    axes[1].set_title(
+        f"{dataset_name} - PCA Compressed Signature"
+    )
+
+    axes[1].grid(True)
+
+    plt.tight_layout()
+    plt.show()
+
+    # 6. Dataset Class Distribution
+
+    plt.figure(figsize=(6, 5))
+
+    sns.countplot(
+        x=y
+    )
+
+    plt.title(
+        f"{dataset_name} - Class Distribution After PCA"
+    )
+
+    plt.xticks(
+        [0, 1],
+        ["Authentic", "Tampered"]
+    )
+
+    plt.grid(True)
+    plt.show()
+
+
+# =========================================================
+# EXECUTION
+# =========================================================
+
+if __name__ == "__main__":
+
+    # CASIA
+
+    apply_pca_and_save(
+        "CASIA_Normalized.csv",
+        "CASIA"
+    )
+
+    # MICC
+
+    apply_pca_and_save(
+        "MICC_Normalized.csv",
+        "MICC"
+    )
+
 import os
 import warnings
 import joblib
@@ -2226,7 +2497,6 @@ def evaluate_after_pca(
 # =========================================================
 
 if __name__ == "__main__":
-
     evaluate_after_pca(
         "CASIA_PCA.csv",
         "CASIA"
